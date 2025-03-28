@@ -1,5 +1,3 @@
-########## 1. Import required libraries ##########
-
 import pandas as pd
 import numpy as np
 import re
@@ -7,21 +5,17 @@ import math
 from sklearn.linear_model import LogisticRegression
 from scipy.stats import mannwhitneyu
 
-# Text and feature engineering
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-# Evaluation and tuning
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import (accuracy_score, precision_score, recall_score,
                              f1_score, roc_curve, auc)
 
 
-# Text cleaning & stopwords
 import nltk
 nltk.download('stopwords')
 from nltk.corpus import stopwords
 
-########## 2. Define text preprocessing methods ##########
 
 
 def remove_html(text):
@@ -41,7 +35,6 @@ def remove_emoji(text):
                                "]+", flags=re.UNICODE)
     return emoji_pattern.sub(r'', text)
 
-# Stopwords
 NLTK_stop_words_list = stopwords.words('english')
 custom_stop_words_list = ['...']  # You can customize this list as needed
 final_stop_words_list = NLTK_stop_words_list + custom_stop_words_list
@@ -66,11 +59,9 @@ def clean_str(string):
     string = re.sub(r"\"", "", string)
     return string.strip().lower()
 
-########## 3. Download & read data ##########
 import os
 import subprocess
-# Choose the project (options: 'pytorch', 'tensorflow', 'keras', 'incubator-mxnet', 'caffe')
-project = 'caffe'
+project = 'tensorflow'
 path = f'./datasets/{project}.csv'
 
 pd_all = pd.read_csv(path)
@@ -90,24 +81,17 @@ pd_tplusb = pd_all.rename(columns={
 })
 pd_tplusb.to_csv('Title+Body.csv', index=False, columns=["id", "Number", "sentiment", "text"])
 
-########## 4. Configure parameters & Start training ##########
 
-# ========== Key Configurations ==========
 
-# 1) Data file to read
 datafile = 'Title+Body.csv'
 
-# 2) Number of repeated experiments
 REPEAT = 10
 
-# 3) Output CSV file name
 out_csv_name = f'./{project}_NB.csv'
 
-# ========== Read and clean data ==========
 data = pd.read_csv(datafile).fillna('')
 text_col = 'text'
 
-# Keep a copy for referencing original data if needed
 original_data = data.copy()
 
 # Text cleaning
@@ -128,7 +112,7 @@ f1_scores   = []
 auc_values  = []
 
 for repeated_time in range(REPEAT):
-    # --- 4.1 Split into train/test ---
+    # --- Split into train/test ---
     indices = np.arange(data.shape[0])
     train_index, test_index = train_test_split(
         indices, test_size=0.2, random_state=repeated_time
@@ -140,7 +124,7 @@ for repeated_time in range(REPEAT):
     y_train = data['sentiment'].iloc[train_index]
     y_test  = data['sentiment'].iloc[test_index]
 
-    # --- 4.2 TF-IDF vectorization ---
+    #  TF-IDF vectorization 
     tfidf = TfidfVectorizer(
         ngram_range=(1, 2),
         max_features=1000
@@ -149,19 +133,18 @@ for repeated_time in range(REPEAT):
     X_test = tfidf.transform(test_text) 
 
     model = LogisticRegression(class_weight='balanced')
-    # --- 4.3 Logistic regression model & GridSearch ---
+    # Logistic regression model & GridSearch
     grid = GridSearchCV(
         model,
         params,
-        cv=5,              # 5-fold CV (can be changed)
-        scoring='roc_auc'  # Using roc_auc as the metric for selection
+        cv=5,              
+        scoring='roc_auc'  
     )
     grid.fit(X_train, y_train)
     # Retrieve the best model
     best_clf = grid.best_estimator_
     best_clf.fit(X_train, y_train)
    
-    # --- 4.4 Make predictions & evaluate ---
     y_pred = best_clf.predict(X_test)
 
     # Accuracy
@@ -181,13 +164,10 @@ for repeated_time in range(REPEAT):
     f1_scores.append(f1)
 
     # AUC
-    # If labels are 0/1 only, this works directly.
-    # If labels are something else, adjust pos_label accordingly.
     fpr, tpr, _ = roc_curve(y_test, y_pred, pos_label=1)
     auc_val = auc(fpr, tpr)
     auc_values.append(auc_val)
 
-# --- 4.5 Aggregate results ---
 final_accuracy  = np.mean(accuracies)
 final_precision = np.mean(precisions)
 final_recall    = np.mean(recalls)
@@ -202,7 +182,6 @@ print(f"Average Recall:        {final_recall:.4f}")
 print(f"Average F1 score:      {final_f1:.4f}")
 print(f"Average AUC:           {final_auc:.4f}")
 
-# Save final results to CSV (append mode)
 try:
     # Attempt to check if the file already has a header
     existing_data = pd.read_csv(out_csv_name, nrows=1)
@@ -212,12 +191,13 @@ except:
 
 df_log = pd.DataFrame(
     {
+         # change these values to accuracy, recall, precision etc. to print the average values to csv rather then arrays in the csv.
         'repeated_times': [REPEAT],
-        'Accuracy': [final_accuracy],
-        'Precision': [final_precision],
-        'Recall': [final_recall],
-        'F1': [final_f1],
-        'AUC': [final_auc],
+        'Accuracy': [accuracies],
+        'Precision': [precisions],
+        'Recall': [recalls],
+        'F1': [f1_scores],
+        'AUC': [auc_values],
         'CV_list(AUC)': [str(auc_values)]
     }
 )
@@ -226,13 +206,16 @@ df_log.to_csv(out_csv_name, mode='a', header=header_needed, index=False)
 
 print(f"\nResults have been saved to: {out_csv_name}")
 
+
+'''
+this was how i did the statistical tests:
 # 2) After the final metric calculations:
 baseline_scores =  [0.59375, 0.5488095238095239, 0.5354037267080746, 0.4457070707070707, 0.6296296296296297, 0.5496894409937888, 0.5897435897435898, 0.5543478260869565, 0.5436081242532855, 0.5805288461538461]
 solution_scores = precisions
-print(precisions)
-
 
 stat, p = mannwhitneyu(baseline_scores, solution_scores, alternative='two-sided')
 
 print("Mann-Whitney U test (baseline recall vs. solution recall):")
 print(f"  U-statistic = {stat:.4f}, p-value = {p}")
+'''
+
