@@ -191,7 +191,7 @@ except:
 
 df_log = pd.DataFrame(
     {
-         # change these values to accuracy, recall, precision etc. to print the average values to csv rather then arrays in the csv.
+         # change these values to final_accuracy, final_precision etc. to print the average values over 10 runs to the csv 
         'repeated_times': [REPEAT],
         'Accuracy': [accuracies],
         'Precision': [precisions],
@@ -215,7 +215,7 @@ solution_scores = precisions
 
 stat, p = mannwhitneyu(baseline_scores, solution_scores, alternative='two-sided')
 
-print("Mann-Whitney U test (baseline recall vs. solution recall):")
+print("Mann-Whitney U test (baseline precision vs. solution precision):")
 print(f"  U-statistic = {stat:.4f}, p-value = {p}")
 '''
 
